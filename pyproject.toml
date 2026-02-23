@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "claude-context"
+version = "0.1.0"
+description = "Keep CLAUDE.md updated with live API consumer context from HTTP traffic"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "boto3>=1.26",
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+otel = [
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-instrumentation-fastapi>=0.41b0",
+    "opentelemetry-instrumentation-flask>=0.41b0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "moto[dynamodb]>=5.0",
+    "httpx>=0.27",
+    "fastapi>=0.110",
+    "flask>=3.0",
+    "ruff>=0.4",
+    "mypy>=1.9",
+    "boto3-stubs[dynamodb]",
+]
+
+[project.scripts]
+claude-context = "claude_context.cli.commands:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/claude_context"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

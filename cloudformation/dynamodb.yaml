@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  DynamoDB table for claude-context — stores observed API consumer patterns
+  (callers, endpoints, request shapes) to populate CLAUDE.md context files.
+
+Parameters:
+  TableName:
+    Type: String
+    Default: claude-context
+    Description: Name of the DynamoDB table
+
+  TtlDays:
+    Type: Number
+    Default: 90
+    Description: >
+      Number of days before an unobserved record expires.
+      Records are refreshed each time traffic is observed, so only
+      stale (no longer called) endpoints will be removed.
+
+  PointInTimeRecovery:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >
+      Enable point-in-time recovery. Not required for observability data
+      but useful if you want protection against accidental table deletion.
+
+Resources:
+  Table:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Ref TableName
+      BillingMode: PAY_PER_REQUEST
+      TableClass: STANDARD
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !Ref PointInTimeRecovery
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: managed-by
+          Value: claude-context
+
+  # IAM managed policy for services running the middleware (write access)
+  WriterPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${TableName}-writer"
+      Description: !Sub "Allows writing API consumer observations to the ${TableName} table"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:UpdateItem
+            Resource: !GetAtt Table.Arn
+
+  # IAM managed policy for the CLI / Claude Code hook (read access)
+  ReaderPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${TableName}-reader"
+      Description: !Sub "Allows reading API consumer observations from the ${TableName} table"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:Query
+            Resource: !GetAtt Table.Arn
+
+Outputs:
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref Table
+    Export:
+      Name: !Sub "${AWS::StackName}-TableName"
+
+  TableArn:
+    Description: DynamoDB table ARN
+    Value: !GetAtt Table.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-TableArn"
+
+  WriterPolicyArn:
+    Description: >
+      Attach this managed policy to the IAM role of any service running
+      the claude-context middleware to allow it to write observations.
+    Value: !Ref WriterPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-WriterPolicyArn"
+
+  ReaderPolicyArn:
+    Description: >
+      Attach this managed policy to the IAM role used by developers or CI
+      running `claude-context sync` or the Claude Code hook.
+    Value: !Ref ReaderPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-ReaderPolicyArn"
