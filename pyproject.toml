@@ -16,9 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 otel = [
+    "opentelemetry-api>=1.20",
     "opentelemetry-sdk>=1.20",
-    "opentelemetry-instrumentation-fastapi>=0.41b0",
-    "opentelemetry-instrumentation-flask>=0.41b0",
 ]
 dev = [
     "pytest>=8.0",
@@ -30,6 +29,8 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.9",
     "boto3-stubs[dynamodb]",
+    "opentelemetry-api>=1.20",
+    "opentelemetry-sdk>=1.20",
 ]
 
 [project.scripts]
